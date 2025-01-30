@@ -8,6 +8,7 @@ public class AutonomousAgent : AiAgent
     public Perception seekPerception;
     public Perception fleePerception;
     public Perception flockPerception;
+    public Perception obstaclePerception;
 
     float angle;
 
@@ -49,6 +50,16 @@ public class AutonomousAgent : AiAgent
                 movement.ApplyForce(Alignment(gameObjects) * data.alignmentWeight);
             }
         }
+        //OBSTACLE
+        if (obstaclePerception != null && obstaclePerception.CheckDirection(Vector3.forward))
+        {
+            Vector3 direction = Vector3.zero;
+            if (obstaclePerception.GetOpenDirection(ref direction))
+            {
+                Debug.DrawRay(transform.position, direction * 5, Color.red, 0.2f);
+                movement.ApplyForce(GetSteeringForce(direction) * data.obstacleWeight);
+            }
+        }
 
         //WANDER
         if (movement.Acceleration.sqrMagnitude == 0)
@@ -57,7 +68,7 @@ public class AutonomousAgent : AiAgent
             movement.ApplyForce(force);
         }
         Vector3 acceleration = movement.Acceleration;
-        acceleration.y = 0;
+        //acceleration.y = 0;
         movement.Acceleration = acceleration;
 
         if (movement.Direction.sqrMagnitude != 0)
@@ -84,11 +95,31 @@ public class AutonomousAgent : AiAgent
     }
     private Vector3 Separation(GameObject[] neighbors, float radius)
     {
-        return Vector3.zero;
+        Vector3 separation = Vector3.zero;
+        foreach (var neighbor in neighbors)
+        {
+            Vector3 direction = transform.position - neighbor.transform.position;
+            float distance = Vector3.SqrMagnitude(direction);
+            if (distance < radius)
+            {
+                separation += direction / (distance * distance);
+            }
+        }
+        Vector3 force = GetSteeringForce(separation);
+
+        return force;
     }
     private Vector3 Alignment(GameObject[] neighbors)
     {
-        return Vector3.zero;
+        Vector3 velocities = Vector3.zero;
+        foreach (var neighbor in neighbors)
+        {
+            velocities += neighbor.GetComponent<AiAgent>().movement.Velocity;
+        }
+        Vector3 averageVelocity = velocities / neighbors.Length;
+        Vector3 force = GetSteeringForce(averageVelocity);
+
+        return force;
     }
     private Vector3 Seek(GameObject go)
     {
